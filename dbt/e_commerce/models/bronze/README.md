@@ -1,0 +1,1 @@
+Folder bronze ini menampung sebuah data yg masih mentah dan belum di bersihkan. dan terdapat file di folder bronze yg berfungsi untuk menyesuaikan tipe data yg sesuai dgn dataset asli. 

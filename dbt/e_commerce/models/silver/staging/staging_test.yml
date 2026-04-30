@@ -1,0 +1,305 @@
+version: 2
+
+models:
+    - name: olist_geolocation_dataset
+      config: 
+        column_types: 
+            geolocation_zip_code_prefix: string
+            geolocation_lat: double
+
+      # TESTING
+      columns: 
+        - name: geolocation_zip_code_prefix
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+        - name: geolocation_lat
+          tests:
+            - not_null
+            #- geolocation_prefix
+        - name: geolocation_lng
+          tests: 
+            - not_null
+            #- geolocation_prefix
+        - name: geolocation_city
+          tests:
+            - not_null
+        - name: geolocation_state
+          tests:
+            - not_null
+
+    - name: olist_order_items_dataset
+      columns:
+        - name: order_id
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+        - name: order_item_id
+          tests: 
+            - not_null
+        - name: product_id
+          tests: [not_null, dbt_utils.not_empty_string]
+        - name: seller_id
+          tests: [not_null, dbt_utils.not_empty_string]
+        - name: shipping_limit_date
+          tests: [not_null, dbt_utils.not_empty_string]
+        - name: price
+          tests: 
+            - not_null
+            - dbt_utils.expression_is_true:
+                expression: ">= 0"
+        - name: freight_value
+          tests:
+            - not_null
+            - dbt_utils.expression_is_true:
+                expression: ">= 0"
+      
+      tests:
+        # CHECK IF THERE IS DUPLICATE COLUMN ON COMPOSITE KEY (COMBINATION OF 2 COLUMN)
+        - dbt_utils.unique_combination_of_columns:  
+            combination_of_columns:
+              - order_id
+              - order_item_id
+    
+    - name: olist_order_payments_dataset
+      columns:
+        # COLUMNS NAME
+        - name: order_id
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+        - name: payment_sequential
+          description: "urutan pembayaran dalam satu order_id"
+          tests: 
+            - not_null
+        - name: payment_type
+          description: "Jenis Pembayaran"
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+            - accepted_values:
+                values:
+                  - credit_card
+                  - boleto
+                  - voucher
+                  - debit_card
+                  - not_defined
+        - name: payment_installments
+          description: "Cicilan Pembayaran"
+          tests:
+            - not_null
+            - dbt_utils.expression_is_true:
+                expression: ">= 1"
+        - name: payment_value
+          description: "harga pembayaran"
+          tests:
+            - not_null
+            - dbt_utils.expression_is_true:
+                expression: "> 0"
+      tests:
+        - dbt_utils.unique_combination_of_columns:
+            combination_of_columns:
+              - order_id
+              - payment_sequential
+
+    - name: olist_order_reviews_dataset
+      columns:
+        - name: review_id
+          tests: [not_null, unique, dbt_utils.not_empty_string]
+        - name: order_id
+          tests: [not_null, dbt_utils.not_empty_string]
+        - name: review_score
+          tests: 
+            - not_null
+            - dbt_utils.expression_is_true:
+                expression: "BETWEEN 1 AND 5"
+      
+      tests:
+        - dbt_utils.unique_combination_of_columns:
+            combination_of_columns:
+              - review_id
+    - name: olist_orders_dataset
+      columns:
+        - name: order_id
+          tests:
+            - not_null
+            - unique
+            - dbt_utils.not_empty_string
+        - name: customer_id
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+        - name: order_status
+          tests:
+            - not_null
+            - accepted_values:
+                values: ['created', 'approved', 'invoiced', 'processing', 'shipped', 'delivered', 'canceled', 'unavailable']
+        - name: order_purchase_timestamp
+          description: "Waktu barang dibeli"
+          tests:
+            - not_null
+        - name: order_approved_at
+          description: "waktu pesanan di approve oleh seller"
+          tests:
+            - dbt_utils.expression_is_true:
+                expression: "IS NULL OR order_approved_at >= order_purchase_timestamp"
+        - name: order_delivered_carrier_date
+          description: "Waktu pesanan diserahkan oleh kurir/logistik"
+          tests:
+            - dbt_utils.expression_is_true:
+                expression: "IS NULL OR order_delivered_carrier_date >= order_approved_at"
+        - name: order_delivered_customer_date
+          description: "Waktu pesanan diterima oleh customer"
+          tests:
+            - dbt_utils.expression_is_true:
+                expression: "IS NULL OR order_delivered_customer_date >= order_delivered_carrier_date"
+        - name: order_estimated_delivery_date
+          description: "Estimasi Waktu pemesanan"
+          tests:
+            - not_null
+
+    - name: olist_products_dataset
+      columns:
+        - name: product_id
+          description: "Unique product identifier"
+          tests:
+            - not_null
+            - unique
+            - dbt_utils.not_empty_string
+
+        - name: product_category_name
+          description: "Product category"
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+
+        - name: product_name_length
+          description: "Length of product name"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_name_length > 0"
+
+        - name: product_description_length
+          description: "Length of product description"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_description_length > 0"
+
+        - name: product_photos_qty
+          description: "Number of product photos"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_photos_qty >= 0"
+
+        - name: product_weight_g
+          description: "Weight in grams"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_weight_g > 0"
+
+        - name: product_length_cm
+          description: "Product length"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_length_cm > 0"
+
+        - name: product_height_cm
+          description: "Product height"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_height_cm > 0"
+
+        - name: product_width_cm
+          description: "Product width"
+          tests:
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: "IS NULL OR product_width_cm > 0"
+
+      
+    - name: olist_sellers_dataset
+      columns:
+        - name: seller_id
+          description: "Unique seller identifier"
+          tests:
+            - not_null
+            - unique
+            - dbt_utils.not_empty_string
+
+        - name: seller_zip_code_prefix
+          description: "Zip code prefix"
+          tests:
+            - not_null
+            - dbt_utils.expression_is_true:
+                arguments:
+                  expression: ">= 1000"
+
+        - name: seller_city
+          description: "Seller city"
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+
+        - name: seller_state
+          description: "Seller state (Brazil)"
+          tests:
+            - not_null
+            - accepted_values:
+                values:
+                  - SP
+                  - RJ
+                  - MG
+                  - RS
+                  - PR
+                  - SC
+                  - BA
+                  - GO
+                  - PE
+                  - CE
+                  - PA
+                  - MT
+                  - ES
+                  - DF
+                  - MS
+                  - RN
+                  - PB
+                  - AL
+                  - SE
+                  - TO
+                  - PI
+                  - RO
+                  - AM
+                  - AC
+                  - AP
+                  - RR
+    - name: product_category_name_translation
+      columns:
+        - name: product_category_name
+          description: "Original category name (Portuguese)"
+          tests:
+            - not_null
+            - unique
+            - dbt_utils.not_empty_string
+
+        - name: product_category_name_english
+          description: "Translated category name (English)"
+          tests:
+            - not_null
+            - dbt_utils.not_empty_string
+
+      tests:
+        - dbt_utils.unique_combination_of_columns:
+            combination_of_columns:
+              - product_category_name
+              - product_category_name_english
+
+      
+
+
+    
